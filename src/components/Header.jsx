@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { LuLogIn, LuUserPlus } from "react-icons/lu";
 
 export default function Header() {
@@ -26,22 +27,24 @@ export default function Header() {
       <div className="flex items-center gap-3">
 
         {/* Login — ghost style */}
-        <a
-          href="#"
+        <Link
+          to="/login"
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-300 border border-gray-600 rounded-md transition-all duration-200 hover:text-yellow-400 hover:border-yellow-400 hover:bg-yellow-400/5 group"
+          style={{ textDecoration: "none" }}
         >
           <LuLogIn size={16} className="text-gray-500 group-hover:text-yellow-400 transition-colors duration-200" />
           Login
-        </a>
+        </Link>
 
         {/* Register — filled style */}
-        <a
-          href="#"
+        <Link
+          to="/register"
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#1a2235] bg-yellow-400 rounded-md transition-all duration-200 hover:bg-yellow-300 hover:shadow-[0_0_12px_rgba(234,179,8,0.4)] active:scale-95 group"
+          style={{ textDecoration: "none" }}
         >
           <LuUserPlus size={16} />
           Register
-        </a>
+        </Link>
 
       </div>
     </nav>

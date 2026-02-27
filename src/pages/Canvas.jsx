@@ -622,48 +622,6 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow 
           ✕ Clear Canvas
         </button>
 
-        <Divider />
-
-        {/* Case Details */}
-        <Card title="Current Case">
-          {[
-            ["Case ID",      "24-10945",     true],
-            ["Investigator", "Agent Smith",  false],
-            ["Date",         "Oct 26, 2024", false],
-            ["Status",       "Active",       false],
-          ].map(([k, v, mono]) => (
-            <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 11 }}>
-              <span style={{ color: C.muted, fontWeight: 500 }}>{k}</span>
-              <span style={{ color: C.text, fontWeight: 700, fontFamily: mono ? "monospace" : "inherit", textAlign: "right" }}>
-                {k === "Status"
-                  ? <span style={{ background: "#E8F5E9", color: C.success, padding: "1px 7px", borderRadius: 4, fontSize: 10, fontFamily: "inherit" }}>{v}</span>
-                  : v}
-              </span>
-            </div>
-          ))}
-        </Card>
-
-        {/* Notes */}
-        <textarea
-          placeholder="Investigation notes…"
-          style={{
-            width:        "100%",
-            height:       72,
-            padding:      "8px 10px",
-            background:   "#fff",
-            border:       `1px solid ${C.border}`,
-            borderRadius: 6,
-            color:        C.text,
-            fontSize:     11,
-            resize:       "none",
-            outline:      "none",
-            boxSizing:    "border-box",
-            fontFamily:   "inherit",
-          }}
-        />
-
-        <Divider />
-
         {/* Tips */}
         <Card title="Quick Tips">
           {[

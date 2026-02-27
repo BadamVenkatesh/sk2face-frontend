@@ -1,172 +1,197 @@
-import { BsPersonBoundingBox, BsPencilSquare, BsPersonVcard } from "react-icons/bs";
-import { FiShield, FiAlertTriangle, FiClock, FiBarChart2, FiUsers, FiSearch } from "react-icons/fi";
+import { Link } from "react-router-dom";
+import { BsPersonBoundingBox, BsPencilSquare, BsPersonVcard, BsArrowRight } from "react-icons/bs";
+import { FiShield, FiAlertTriangle, FiSearch } from "react-icons/fi";
 import { MdOutlineBusinessCenter } from "react-icons/md";
+import { HiOutlineFingerPrint } from "react-icons/hi";
+import { LuScanFace, LuSparkles } from "react-icons/lu";
 
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
 import Dashboard from "../components/Dashboard";
 
 // ─── MOCK DATA (replace with real API data) ───────────────────────────────────
 
 const officer = {
-  fullName: "Sarah Jenkins",
-  shortName: "S. Jenkins",
+  fullName: "Badam Venkatesh",
   designation: "Senior Forensic Analyst",
   department: "Digital Evidence Division",
-  lastLogin: "Oct 25, 2023, 08:45 AM",
 };
-
-const stats = [
-  {
-    icon: <FiBarChart2 size={20} className="text-[#0B1F3A]" />,
-    bgColor: "bg-blue-50",
-    label: "Total Matches Performed",
-    value: "1,248",
-  },
-  {
-    icon: <FiUsers size={20} className="text-emerald-700" />,
-    bgColor: "bg-emerald-50",
-    label: "Total Cases Handled",
-    value: "342",
-  },
-  {
-    icon: <FiClock size={20} className="text-amber-700" />,
-    bgColor: "bg-amber-50",
-    label: "Recent Activity",
-    value: "Match #M-92810",
-    sub: "2 hours ago",
-  },
-];
 
 const quickActions = [
   {
-    icon: <BsPersonBoundingBox size={24} className="text-white" />,
+    icon: <BsPersonBoundingBox size={26} className="text-white" />,
     title: "Match a Sketch",
-    desc: "Upload a sketch and retrieve similar images from the national database using advanced biometric cross-matching.",
-    href: "#",
+    desc: "Upload a forensic sketch and retrieve similar faces from the national database using AI-powered biometric cross-matching.",
+    to: "/match-service",
+    gradient: "from-[#0B1F3A] to-[#1a3a5c]",
+    accent: "bg-blue-400/20 text-blue-300",
+    tag: "AI Matching",
   },
   {
-    icon: <BsPencilSquare size={24} className="text-white" />,
+    icon: <BsPencilSquare size={26} className="text-white" />,
     title: "Create Sketch",
-    desc: "Build a composite sketch using intuitive drag-and-drop facial features for suspect identification.",
-    href: "#",
+    desc: "Build a composite sketch with our intuitive drag-and-drop toolkit featuring comprehensive facial feature elements.",
+    to: "/drag-and-drop",
+    gradient: "from-[#1a2e45] to-[#0d3b2e]",
+    accent: "bg-emerald-400/20 text-emerald-300",
+    tag: "Builder",
   },
   {
-    icon: <FiSearch size={24} className="text-white" />,
-    title: "View Matching History",
-    desc: "Review previously performed matching results, forensic reports, and audit logs of system activity.",
-    href: "#",
+    icon: <FiSearch size={26} className="text-white" />,
+    title: "Match History",
+    desc: "Review past matching results, forensic reports, and complete audit logs for accountability and case review.",
+    to: "/match-history",
+    gradient: "from-[#2a1a3a] to-[#1a2e45]",
+    accent: "bg-purple-400/20 text-purple-300",
+    tag: "Records",
   },
   {
-    icon: <BsPersonVcard size={24} className="text-white" />,
-    title: "View Profile",
-    desc: "Access and manage your officer profile, security credentials, and system preferences.",
-    href: "#",
+    icon: <BsPersonVcard size={26} className="text-white" />,
+    title: "My Profile",
+    desc: "Access and manage your officer profile, view security credentials, and update system preferences.",
+    to: "/profile",
+    gradient: "from-[#3a2a1a] to-[#2a1a0a]",
+    accent: "bg-amber-400/20 text-amber-300",
+    tag: "Account",
   },
 ];
 
 // ─── SECTIONS ─────────────────────────────────────────────────────────────────
 
-function WelcomeCard() {
+function WelcomeBanner() {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-start gap-5">
-      {/* Shield icon block */}
-      <div className="w-16 h-16 rounded-xl bg-[#eef1f7] flex items-center justify-center flex-shrink-0">
-        <FiShield size={30} className="text-[#0B1F3A]" />
-      </div>
+    <div className="relative overflow-hidden bg-gradient-to-br from-[#0B1F3A] via-[#13294B] to-[#1a3a5c] rounded-2xl p-7 md:p-9 text-white shadow-xl">
+      {/* Background decorative elements */}
+      <div className="absolute top-0 right-0 w-72 h-72 bg-white/[0.03] rounded-full -translate-y-1/2 translate-x-1/3" />
+      <div className="absolute bottom-0 left-0 w-48 h-48 bg-yellow-400/[0.04] rounded-full translate-y-1/3 -translate-x-1/4" />
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+        }}
+      />
 
-      {/* Text */}
-      <div className="flex-1">
-        <h1 className="text-2xl font-extrabold text-[#0B1F3A] leading-snug">
-          Welcome, Officer {officer.fullName}
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Secure forensic face recognition system for authorized personnel.
-        </p>
-
-        {/* Meta info row */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-7 gap-y-2">
-          <span className="flex items-center gap-2 text-xs text-gray-500 font-medium uppercase tracking-wide">
-            <FiClock size={13} className="text-gray-400" />
-            Last Login: {officer.lastLogin}
-          </span>
-          <span className="flex items-center gap-2 text-xs text-gray-500 font-medium uppercase tracking-wide">
-            <FiShield size={13} className="text-gray-400" />
-            {officer.designation}
-          </span>
-          <span className="flex items-center gap-2 text-xs text-gray-500 font-medium uppercase tracking-wide">
-            <MdOutlineBusinessCenter size={14} className="text-gray-400" />
-            {officer.department}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatsRow() {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {stats.map((stat) => (
-        <div
-          key={stat.label}
-          className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex items-center gap-4"
-        >
-          <div className={`w-10 h-10 rounded-lg ${stat.bgColor} flex items-center justify-center flex-shrink-0`}>
-            {stat.icon}
+      <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        {/* Left content */}
+        <div className="flex items-start gap-5">
+          {/* Avatar */}
+          <div className="relative">
+            <div className="w-16 h-16 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+              <HiOutlineFingerPrint size={32} className="text-yellow-400" />
+            </div>
+            <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 border-2 border-[#0B1F3A] rounded-full" />
           </div>
+
+          {/* Text */}
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
-              {stat.label}
+            <p className="text-yellow-400 text-[11px] font-bold tracking-[0.2em] uppercase mb-1 flex items-center gap-2">
+              <LuSparkles size={12} />
+              Welcome Back
             </p>
-            <p className="text-xl font-extrabold text-[#0B1F3A] leading-tight mt-0.5">
-              {stat.value}
-            </p>
-            {stat.sub && (
-              <p className="text-xs text-gray-400 mt-0.5">{stat.sub}</p>
-            )}
+            <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">
+              Officer {officer.fullName}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <span className="flex items-center gap-2 text-[11px] text-white/60 font-medium">
+                <FiShield size={13} className="text-yellow-400/70" />
+                {officer.designation}
+              </span>
+              <span className="flex items-center gap-2 text-[11px] text-white/60 font-medium">
+                <MdOutlineBusinessCenter size={14} className="text-yellow-400/70" />
+                {officer.department}
+              </span>
+            </div>
           </div>
         </div>
-      ))}
+
+        {/* Right CTA */}
+        <Link
+          to="/match-service"
+          className="flex items-center gap-3 px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-[#0B1F3A] text-sm font-bold rounded-xl transition-all duration-200 hover:shadow-[0_0_20px_rgba(234,179,8,0.3)] active:scale-95 shrink-0"
+          style={{ textDecoration: "none" }}
+        >
+          <LuScanFace size={18} />
+          Start New Match
+          <BsArrowRight size={14} />
+        </Link>
+      </div>
     </div>
   );
 }
 
-function QuickActions() {
+function QuickActionsGrid() {
   return (
     <div>
       {/* Section heading */}
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-1 h-4 rounded-full bg-yellow-500" />
-        <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">
+        <div className="w-1 h-5 rounded-full bg-yellow-500" />
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">
           Quick Actions
         </h2>
+        <div className="flex-1 h-px bg-gray-200" />
       </div>
 
       {/* 2×2 grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {quickActions.map((action) => (
-          <a
+          <Link
             key={action.title}
-            href={action.href}
-            className="group bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-start gap-4 hover:border-[#0B1F3A] hover:shadow-md transition-all duration-200"
+            to={action.to}
+            className="group relative overflow-hidden bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:border-gray-200 transition-all duration-300 hover:-translate-y-0.5"
+            style={{ textDecoration: "none" }}
           >
-            {/* Icon block */}
-            <div className="w-14 h-14 rounded-xl bg-[#0B1F3A] flex items-center justify-center flex-shrink-0 group-hover:bg-[#162d52] transition-colors duration-200">
-              {action.icon}
+            <div className="flex items-start gap-4 p-5">
+              {/* Icon block with gradient */}
+              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${action.gradient} flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-300 shadow-md`}>
+                {action.icon}
+              </div>
+
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <h3 className="text-base font-bold text-[#0B1F3A] group-hover:text-[#162d52] transition-colors">
+                    {action.title}
+                  </h3>
+                  <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${action.accent}`}>
+                    {action.tag}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  {action.desc}
+                </p>
+              </div>
+
+              {/* Arrow */}
+              <div className="self-center opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-0 -translate-x-2 flex-shrink-0">
+                <BsArrowRight size={18} className="text-gray-400" />
+              </div>
             </div>
-            {/* Text */}
-            <div>
-              <h3 className="text-base font-bold text-[#0B1F3A] group-hover:text-[#162d52]">
-                {action.title}
-              </h3>
-              <p className="text-sm text-gray-500 mt-1 leading-relaxed">
-                {action.desc}
-              </p>
-            </div>
-          </a>
+
+            {/* Bottom accent bar */}
+            <div className={`h-0.5 w-0 group-hover:w-full bg-gradient-to-r ${action.gradient} transition-all duration-500`} />
+          </Link>
         ))}
       </div>
+    </div>
+  );
+}
+
+function SystemStatus() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {[
+        { label: "System Status", value: "Operational", color: "text-emerald-600", dot: "bg-emerald-400", bg: "bg-emerald-50", border: "border-emerald-100" },
+        { label: "Database", value: "Connected", color: "text-blue-600", dot: "bg-blue-400", bg: "bg-blue-50", border: "border-blue-100" },
+        { label: "Security Level", value: "Clearance A", color: "text-amber-600", dot: "bg-amber-400", bg: "bg-amber-50", border: "border-amber-100" },
+      ].map((item) => (
+        <div key={item.label} className={`${item.bg} border ${item.border} rounded-xl px-5 py-4 flex items-center gap-3`}>
+          <span className={`w-2.5 h-2.5 rounded-full ${item.dot} animate-pulse`} />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">{item.label}</p>
+            <p className={`text-sm font-bold ${item.color} mt-0.5`}>{item.value}</p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -186,7 +211,7 @@ function SecurityNotice() {
 function InlineFooter() {
   return (
     <p className="text-center text-[11px] text-gray-400 uppercase tracking-widest py-4">
-      © 2023 National Forensic Agency · SK2FACE System · Class: Restricted
+      © 2025 National Forensic Agency · SK2FACE System · Class: Restricted
     </p>
   );
 }
@@ -196,15 +221,15 @@ function InlineFooter() {
 export default function PrivateHomePage() {
   return (
     <Dashboard>
-        <div className="min-h-screen flex flex-col bg-[#f0f2f5]">
-            <main className="flex-1 max-w-5xl w-full mx-auto px-5 py-8 space-y-5">
-                <WelcomeCard />
-                <StatsRow />
-                <QuickActions />
-                <SecurityNotice />
-                <InlineFooter />
-            </main>
-        </div>
+      <div className="min-h-screen flex flex-col bg-[#f0f2f5]">
+        <main className="flex-1 max-w-5xl w-full mx-auto px-5 py-8 space-y-6">
+          <WelcomeBanner />
+          <SystemStatus />
+          <QuickActionsGrid />
+          <SecurityNotice />
+          <InlineFooter />
+        </main>
+      </div>
     </Dashboard>
   );
 }

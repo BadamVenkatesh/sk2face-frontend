@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { LuShield, LuLock } from "react-icons/lu";
 import { FiDatabase, FiEyeOff, FiClock } from "react-icons/fi";
 import { BsPersonBoundingBox, BsPencilSquare } from "react-icons/bs";
@@ -85,20 +86,22 @@ function Hero() {
           </p>
 
           <div className="flex items-center gap-4 pt-2">
-            <a
-              href="#"
+            <Link
+              to="/match-service"
               className="flex items-center gap-2 px-5 py-3 bg-[#0d1a2e] text-white text-sm font-semibold rounded-lg hover:bg-[#162540] active:scale-95 transition-all duration-200 shadow-md"
+              style={{ textDecoration: "none" }}
             >
               <BsPersonBoundingBox size={16} />
               Start Matching
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
+              to="/drag-and-drop"
               className="flex items-center gap-2 px-5 py-3 bg-white text-[#0d1a2e] text-sm font-semibold rounded-lg border border-gray-300 hover:border-gray-400 hover:bg-gray-50 active:scale-95 transition-all duration-200"
+              style={{ textDecoration: "none" }}
             >
               <BsPencilSquare size={16} />
               Create Sketch
-            </a>
+            </Link>
           </div>
         </div>
 
