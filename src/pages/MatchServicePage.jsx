@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { FiUploadCloud, FiSearch, FiSave, FiFileText, FiShield } from "react-icons/fi";
+import { FiUploadCloud, FiSearch, FiShield } from "react-icons/fi";
 import { BsPersonBoundingBox } from "react-icons/bs";
 
 import Navbar from "../components/Navbar";
@@ -166,16 +166,13 @@ function ResultsPanel({ results, hasSearched }) {
                 {/* Photo */}
                 <img
                   src={match.img}
-                  alt={match.id}
+                  alt={`Match ${i + 1}`}
                   className="w-16 h-16 rounded-lg object-cover flex-shrink-0 border border-gray-200"
                 />
 
-                {/* Info */}
+                {/* Progress bar */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Subject ID</p>
-                  <p className="text-sm font-bold text-[#0B1F3A] mt-0.5">{match.id}</p>
-                  {/* Progress bar */}
-                  <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full ${match.barColor} transition-all duration-700`}
                       style={{ width: `${match.confidence}%` }}
@@ -194,18 +191,6 @@ function ResultsPanel({ results, hasSearched }) {
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3 mt-1">
-            <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-[#0B1F3A] text-[#0B1F3A] text-sm font-semibold hover:bg-[#0B1F3A] hover:text-white transition-all duration-200">
-              <FiSave size={15} />
-              Save Match Record
-            </button>
-            <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-yellow-500 text-[#0B1F3A] text-sm font-semibold hover:bg-yellow-400 active:scale-[0.98] transition-all duration-200 shadow-sm">
-              <FiFileText size={15} />
-              View Detailed Report
-            </button>
           </div>
         </>
       )}
