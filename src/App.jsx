@@ -1,3 +1,4 @@
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Footer from "./components/Footer"
 import Navbar from "./components/Navbar"
 import Dashboard from "./components/Dashboard"
@@ -9,7 +10,7 @@ import Profile from "./pages/Profile"
 import PrivateHomePage from "./pages/PrivateHomePage"
 import MatchingHistoryCard from "./pages/MatchingHistoryCard"
 import MatchServicePage from "./pages/MatchServicePage"
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Canvas from "./pages/Canvas";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/match-history" element={<MatchingHistoryCard />} />
           <Route path="/match-service" element={<MatchServicePage />} />
+          <Route path="/drag-and-drop" element={<Canvas/>} />
 
           {/* 404 Route */}
           <Route
