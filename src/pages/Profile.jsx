@@ -1,12 +1,15 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { FiEdit2, FiShield, FiX, FiCheck, FiMail, FiPhone, FiBriefcase, FiUser, FiHash } from "react-icons/fi";
 import { HiOutlineFingerPrint } from "react-icons/hi";
 import { MdOutlineBusinessCenter } from "react-icons/md";
 import Dashboard from "../components/Dashboard";
 
+import { fetchUserProfile, updateUserProfile } from "../store/userSlice";
+
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
 
-function EditModal({ officer, onSave, onClose }) {
+function EditModal({ officer, onSave, onClose, saving }) {
   const [form, setForm] = useState({ ...officer });
 
   const handleChange = (field) => (e) => {
@@ -19,12 +22,11 @@ function EditModal({ officer, onSave, onClose }) {
   };
 
   const fields = [
-    { key: "name",        label: "Name",        icon: <FiUser size={15} /> },
-    { key: "fullName",    label: "Full Name",    icon: <FiUser size={15} /> },
-    { key: "designation", label: "Designation",  icon: <FiBriefcase size={15} /> },
-    { key: "department",  label: "Department",   icon: <MdOutlineBusinessCenter size={15} /> },
-    { key: "email",       label: "Official Email", icon: <FiMail size={15} /> },
-    { key: "phone",       label: "Phone Number", icon: <FiPhone size={15} /> },
+    { key: "fullName",       label: "Full Name",      icon: <FiUser size={15} /> },
+    { key: "designation",    label: "Designation",     icon: <FiBriefcase size={15} /> },
+    { key: "departmentName", label: "Department",      icon: <MdOutlineBusinessCenter size={15} /> },
+    { key: "officialEmail",  label: "Official Email",  icon: <FiMail size={15} /> },
+    { key: "phoneNumber",    label: "Phone Number",    icon: <FiPhone size={15} /> },
   ];
 
   return (
@@ -68,8 +70,8 @@ function EditModal({ officer, onSave, onClose }) {
                   {icon}
                 </span>
                 <input
-                  type={key === "email" ? "email" : "text"}
-                  value={form[key]}
+                  type={key === "officialEmail" ? "email" : "text"}
+                  value={form[key] || ""}
                   onChange={handleChange(key)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-[#fafbfc] text-sm font-medium text-[#0B1F3A] outline-none focus:border-[#0B1F3A] focus:ring-2 focus:ring-[#0B1F3A]/10 transition-all duration-200"
                 />
@@ -89,10 +91,20 @@ function EditModal({ officer, onSave, onClose }) {
           </button>
           <button
             onClick={handleSubmit}
-            className="px-5 py-2.5 rounded-xl text-sm font-bold bg-[#0B1F3A] text-yellow-400 hover:bg-[#162d52] transition-all duration-200 flex items-center gap-2 shadow-sm"
+            disabled={saving}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold bg-[#0B1F3A] text-yellow-400 hover:bg-[#162d52] transition-all duration-200 flex items-center gap-2 shadow-sm disabled:opacity-60"
           >
-            <FiCheck size={15} />
-            Save Changes
+            {saving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <FiCheck size={15} />
+                Save Changes
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -119,7 +131,7 @@ const InfoField = ({ icon, label, value }) => (
         {label}
       </p>
       <p className="text-sm font-semibold text-[#0B1F3A] truncate">
-        {value}
+        {value || "—"}
       </p>
     </div>
   </div>
@@ -128,31 +140,43 @@ const InfoField = ({ icon, label, value }) => (
 // ─── Profile Page ─────────────────────────────────────────────────────────────
 
 const Profile = () => {
-  const [officer, setOfficer] = useState(null);
+  const dispatch = useDispatch();
+  const { profile, loading } = useSelector((state) => state.user);
+  const { userUuid } = useSelector((state) => state.auth);
   const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const fetchOfficer = async () => {
-      const response = {
-        employeeId: "SK-94285",
-        name: "Badam Venkatesh",
-        fullName: "Badam Venkatesh",
-        designation: "Senior Forensic Analyst",
-        department: "Digital Evidence Division",
-        email: "b.venkatesh@forensic.gov",
-        phone: "+91 98765 43210",
-      };
-      setOfficer(response);
-    };
-    fetchOfficer();
-  }, []);
+    if (userUuid && !profile) {
+      dispatch(fetchUserProfile(userUuid));
+    }
+  }, [userUuid, profile, dispatch]);
 
-  const handleSave = useCallback((updated) => {
-    setOfficer(updated);
-    setEditOpen(false);
-  }, []);
+  const handleSave = useCallback(async (updated) => {
+    setSaving(true);
+    try {
+      await dispatch(
+        updateUserProfile({
+          userId: userUuid,
+          profileData: {
+            employeeId: updated.employeeId,
+            fullName: updated.fullName,
+            officialEmail: updated.officialEmail,
+            designation: updated.designation,
+            departmentName: updated.departmentName,
+            phoneNumber: updated.phoneNumber,
+          },
+        })
+      ).unwrap();
+      setEditOpen(false);
+    } catch (err) {
+      console.error("Failed to update profile:", err);
+    } finally {
+      setSaving(false);
+    }
+  }, [dispatch, userUuid]);
 
-  if (!officer) {
+  if (loading || !profile) {
     return (
       <Dashboard>
         <div className="min-h-screen flex items-center justify-center bg-[#f0f2f5]">
@@ -195,14 +219,14 @@ const Profile = () => {
 
               {/* Name */}
               <h1 className="text-2xl font-extrabold tracking-wide">
-                {officer.name}
+                {profile.fullName}
               </h1>
               <p className="text-yellow-400 text-[11px] font-bold tracking-[0.25em] uppercase mt-1.5">
-                {officer.designation}
+                {profile.designation}
               </p>
               <p className="text-white/40 text-xs mt-1 flex items-center gap-1.5">
                 <MdOutlineBusinessCenter size={13} />
-                {officer.department}
+                {profile.departmentName}
               </p>
 
               {/* Edit button */}
@@ -231,32 +255,32 @@ const Profile = () => {
               <InfoField
                 icon={<FiHash size={15} className="text-[#0B1F3A]/50" />}
                 label="Employee ID"
-                value={officer.employeeId}
+                value={profile.employeeId}
               />
               <InfoField
                 icon={<FiUser size={15} className="text-[#0B1F3A]/50" />}
                 label="Full Name"
-                value={officer.fullName}
+                value={profile.fullName}
               />
               <InfoField
                 icon={<FiBriefcase size={15} className="text-[#0B1F3A]/50" />}
                 label="Designation"
-                value={officer.designation}
+                value={profile.designation}
               />
               <InfoField
                 icon={<MdOutlineBusinessCenter size={15} className="text-[#0B1F3A]/50" />}
                 label="Department"
-                value={officer.department}
+                value={profile.departmentName}
               />
               <InfoField
                 icon={<FiMail size={15} className="text-[#0B1F3A]/50" />}
                 label="Official Email"
-                value={officer.email}
+                value={profile.officialEmail}
               />
               <InfoField
                 icon={<FiPhone size={15} className="text-[#0B1F3A]/50" />}
                 label="Phone Number"
-                value={officer.phone}
+                value={profile.phoneNumber}
               />
             </div>
           </div>
@@ -275,9 +299,10 @@ const Profile = () => {
       {/* Edit Modal */}
       {editOpen && (
         <EditModal
-          officer={officer}
+          officer={profile}
           onSave={handleSave}
           onClose={() => setEditOpen(false)}
+          saving={saving}
         />
       )}
     </Dashboard>

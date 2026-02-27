@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
@@ -12,10 +14,16 @@ import {
   ArrowRight 
 } from 'lucide-react';
 
+import { registerUser, clearAuthError } from '../store/authSlice';
+
 const RegistrationForm = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { loading, error } = useSelector((state) => state.auth);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const [formData, setFormData] = useState({
     employeeId: '',
@@ -49,9 +57,38 @@ const RegistrationForm = () => {
     else setPasswordStrength('STRONG');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(JSON.stringify(formData, null, 2));
+
+    if (formData.password !== formData.confirmPassword) {
+      dispatch(clearAuthError());
+      setSuccessMessage('');
+      return alert('Passwords do not match');
+    }
+
+    setSuccessMessage('');
+
+    try {
+      await dispatch(
+        registerUser({
+          username: formData.username,
+          password: formData.password,
+          employeeId: formData.employeeId,
+          fullName: formData.fullName,
+          officialEmail: formData.officialEmail,
+          designation: formData.designation,
+          departmentName: formData.departmentName,
+          phoneNumber: formData.phoneNumber,
+        })
+      ).unwrap();
+
+      setSuccessMessage('Registration successful! Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+    } catch {
+      // Error is already in Redux state
+    }
   };
 
   const handleClear = () => {
@@ -67,6 +104,8 @@ const RegistrationForm = () => {
       confirmPassword: ''
     });
     setPasswordStrength('');
+    setSuccessMessage('');
+    dispatch(clearAuthError());
   };
 
   const inputStyle =
@@ -94,6 +133,20 @@ const RegistrationForm = () => {
           {/* Card */}
           <div className="bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 p-8">
             
+            {/* Success Message */}
+            {successMessage && (
+              <div className="mb-6 p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-700 text-center font-medium">
+                {successMessage}
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 text-center font-medium">
+                {error}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit}>
 
               {/* Official Identification */}
@@ -195,14 +248,25 @@ const RegistrationForm = () => {
 
                 <button
                   type="submit"
+                  disabled={loading}
                   className="px-6 py-3 bg-gradient-to-r from-blue-900 to-blue-800 text-white font-semibold rounded-lg
                   hover:from-blue-800 hover:to-blue-700
                   hover:shadow-lg hover:-translate-y-[1px]
                   active:scale-[0.98]
-                  transition-all duration-200 flex items-center gap-2"
+                  transition-all duration-200 flex items-center gap-2
+                  disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Submit Registration
-                  <ArrowRight className="w-4 h-4" />
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      Submit Registration
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </div>
 

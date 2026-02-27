@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { AiOutlineHome } from "react-icons/ai";
 import { MdOutlineVerifiedUser } from "react-icons/md";
 import { LuScanFace } from "react-icons/lu";
@@ -7,6 +8,9 @@ import { FiClock } from "react-icons/fi";
 import { LuLogOut } from "react-icons/lu";
 import { HiOutlineMenuAlt3 } from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
+
+import { logoutUser } from "../store/authSlice";
+import { clearUserProfile } from "../store/userSlice";
 
 const navLinks = [
   { label: "Home",          to: "/home",          icon: <AiOutlineHome size={17} /> },
@@ -17,10 +21,21 @@ const navLinks = [
 
 export default function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const { profile } = useSelector((state) => state.user);
 
   // Determine which link is active based on the current pathname
   const isActive = (to) => location.pathname === to;
+
+  const handleLogout = async () => {
+    setMenuOpen(false);
+    await dispatch(logoutUser());
+    dispatch(clearUserProfile());
+    navigate("/login", { replace: true });
+  };
 
   return (
     <nav className="w-full bg-[#1a2235] text-white shadow-lg relative" style={{ minHeight: 56 }}>
@@ -72,7 +87,9 @@ export default function Navbar() {
         {/* Right section — hidden below 1120px */}
         <div className="hidden min-[1120px]:flex items-center gap-3 xl:gap-4 shrink-0">
           <div className="flex flex-col items-end leading-tight">
-            <span className="text-[10px] text-gray-400 uppercase tracking-widest whitespace-nowrap">Authenticated Personnel</span>
+            <span className="text-[10px] text-gray-400 uppercase tracking-widest whitespace-nowrap">
+              {profile?.fullName || "Authenticated Personnel"}
+            </span>
             <Link to="/profile" className="text-sm text-gray-200 hover:text-yellow-400 transition-colors font-medium" style={{ textDecoration: "none" }}>
               View Profile
             </Link>
@@ -93,13 +110,13 @@ export default function Navbar() {
           <div className="h-8 w-px bg-gray-600 mx-1" />
 
           {/* Logout */}
-          <Link
-            to="/"
+          <button
+            onClick={handleLogout}
             className="text-gray-400 hover:text-white transition-colors"
             title="Logout"
           >
             <LuLogOut size={20} />
-          </Link>
+          </button>
         </div>
 
         {/* Hamburger button — visible below 1120px */}
@@ -154,20 +171,21 @@ export default function Navbar() {
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-[#1a2235] rounded-full"></span>
               </Link>
               <div className="flex flex-col leading-tight">
-                <span className="text-[10px] text-gray-400 uppercase tracking-widest">Authenticated Personnel</span>
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest">
+                  {profile?.fullName || "Authenticated Personnel"}
+                </span>
                 <Link to="/profile" onClick={() => setMenuOpen(false)} className="text-sm text-gray-200 hover:text-yellow-400 transition-colors font-medium" style={{ textDecoration: "none" }}>
                   View Profile
                 </Link>
               </div>
             </div>
-            <Link
-              to="/"
-              onClick={() => setMenuOpen(false)}
+            <button
+              onClick={handleLogout}
               className="text-gray-400 hover:text-white transition-colors p-2"
               title="Logout"
             >
               <LuLogOut size={20} />
-            </Link>
+            </button>
           </div>
         </div>
       )}

@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
@@ -10,7 +12,13 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 
+import { loginUser, clearAuthError } from "../store/authSlice";
+
 export default function LoginCard() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { loading, error, isAuthenticated } = useSelector((state) => state.auth);
+
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -18,6 +26,18 @@ export default function LoginCard() {
     password: "",
     rememberTerminal: false,
   });
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/home", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Clear auth errors when component mounts
+  useEffect(() => {
+    dispatch(clearAuthError());
+  }, [dispatch]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -28,16 +48,21 @@ export default function LoginCard() {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const jsonPayload = {
-      ...formData,
-      timestamp: new Date().toISOString(),
-    };
+    try {
+      await dispatch(
+        loginUser({
+          username: formData.username,
+          password: formData.password,
+        })
+      ).unwrap();
 
-    console.log("User Login JSON:");
-    console.log(JSON.stringify(jsonPayload, null, 2));
+      navigate("/home", { replace: true });
+    } catch {
+      // Error is already in Redux state
+    }
   };
 
   return (
@@ -68,6 +93,13 @@ export default function LoginCard() {
               OFFICIAL LOGIN PORTAL
             </p>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 text-center font-medium">
+              {error}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -139,6 +171,7 @@ export default function LoginCard() {
             {/* Authorize Button */}
             <button
               type="submit"
+              disabled={loading}
               className="
                 w-full inline-flex items-center justify-center gap-3
                 py-3 rounded-xl text-white font-semibold
@@ -149,10 +182,20 @@ export default function LoginCard() {
                 hover:shadow-xl
                 hover:-translate-y-0.5
                 active:scale-95
+                disabled:opacity-60 disabled:cursor-not-allowed
             "
             >
-              <FaShieldAlt />
-              Authorize Access
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Authorizing...
+                </>
+              ) : (
+                <>
+                  <FaShieldAlt />
+                  Authorize Access
+                </>
+              )}
             </button>
           </form>
 

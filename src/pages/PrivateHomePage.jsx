@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { BsPersonBoundingBox, BsPencilSquare, BsPersonVcard, BsArrowRight } from "react-icons/bs";
 import { FiShield, FiAlertTriangle, FiSearch } from "react-icons/fi";
 import { MdOutlineBusinessCenter } from "react-icons/md";
@@ -7,13 +8,7 @@ import { LuScanFace, LuSparkles } from "react-icons/lu";
 
 import Dashboard from "../components/Dashboard";
 
-// ─── MOCK DATA (replace with real API data) ───────────────────────────────────
-
-const officer = {
-  fullName: "Badam Venkatesh",
-  designation: "Senior Forensic Analyst",
-  department: "Digital Evidence Division",
-};
+// ─── QUICK ACTIONS DATA ───────────────────────────────────────────────────────
 
 const quickActions = [
   {
@@ -56,7 +51,7 @@ const quickActions = [
 
 // ─── SECTIONS ─────────────────────────────────────────────────────────────────
 
-function WelcomeBanner() {
+function WelcomeBanner({ officer }) {
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-[#0B1F3A] via-[#13294B] to-[#1a3a5c] rounded-2xl p-7 md:p-9 text-white shadow-xl">
       {/* Background decorative elements */}
@@ -98,7 +93,7 @@ function WelcomeBanner() {
               </span>
               <span className="flex items-center gap-2 text-[11px] text-white/60 font-medium">
                 <MdOutlineBusinessCenter size={14} className="text-yellow-400/70" />
-                {officer.department}
+                {officer.departmentName}
               </span>
             </div>
           </div>
@@ -219,11 +214,20 @@ function InlineFooter() {
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
 export default function PrivateHomePage() {
+  const { profile } = useSelector((state) => state.user);
+
+  // Fallback for when profile hasn't loaded yet
+  const officer = profile || {
+    fullName: "Officer",
+    designation: "—",
+    departmentName: "—",
+  };
+
   return (
     <Dashboard>
       <div className="min-h-screen flex flex-col bg-[#f0f2f5]">
         <main className="flex-1 max-w-5xl w-full mx-auto px-5 py-8 space-y-6">
-          <WelcomeBanner />
+          <WelcomeBanner officer={officer} />
           <SystemStatus />
           <QuickActionsGrid />
           <SecurityNotice />

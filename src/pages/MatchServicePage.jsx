@@ -1,43 +1,56 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
 import { FiUploadCloud, FiSearch, FiShield } from "react-icons/fi";
 import { BsPersonBoundingBox } from "react-icons/bs";
 
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
 import Dashboard from "../components/Dashboard";
 
-// ─── MOCK MATCH RESULTS (replace with real API response) ─────────────────────
+import { uploadImageMatch, clearMatches, clearMatchError } from "../store/matchSlice";
 
-const mockMatches = [
-  {
-    id: "ID-88294-TX",
-    confidence: 94.2,
-    level: "HIGH CONFIDENCE",
-    color: "text-emerald-600",
-    barColor: "bg-emerald-500",
-    img: "https://randomuser.me/api/portraits/women/44.jpg",
-  },
-  {
-    id: "ID-11023-CA",
-    confidence: 78.5,
-    level: "MODERATE CONFIDENCE",
-    color: "text-amber-500",
-    barColor: "bg-amber-400",
-    img: "https://randomuser.me/api/portraits/women/68.jpg",
-  },
-  {
-    id: "ID-54911-NY",
-    confidence: 64.1,
-    level: "LOW CONFIDENCE",
-    color: "text-red-500",
-    barColor: "bg-red-500",
-    img: "https://randomuser.me/api/portraits/women/72.jpg",
-  },
-];
+// ─── HELPER: Convert API match result to display format ───────────────────────
+
+function toDisplayResults(apiMatches) {
+  if (!apiMatches) return [];
+
+  const entries = [
+    { key: "match1", ...apiMatches.match1 },
+    { key: "match2", ...apiMatches.match2 },
+    { key: "match3", ...apiMatches.match3 },
+  ].filter((m) => m.url); // filter out any missing matches
+
+  return entries.map((match, i) => {
+    const confidence = Math.round((match.score || 0) * 100 * 10) / 10;
+    let level, color, barColor;
+
+    if (confidence >= 85) {
+      level = "HIGH CONFIDENCE";
+      color = "text-emerald-600";
+      barColor = "bg-emerald-500";
+    } else if (confidence >= 65) {
+      level = "MODERATE CONFIDENCE";
+      color = "text-amber-500";
+      barColor = "bg-amber-400";
+    } else {
+      level = "LOW CONFIDENCE";
+      color = "text-red-500";
+      barColor = "bg-red-500";
+    }
+
+    return {
+      id: `Match-${i + 1}`,
+      confidence,
+      level,
+      color,
+      barColor,
+      img: match.url,
+    };
+  });
+}
 
 // ─── UPLOAD PANEL ─────────────────────────────────────────────────────────────
 
-function UploadPanel({ file, onFileChange, onDrop, isDragging, setIsDragging, onMatch }) {
+function UploadPanel({ file, onFileChange, onDrop, isDragging, setIsDragging, onMatch, loading }) {
   const inputRef = useRef();
 
   const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
@@ -105,11 +118,20 @@ function UploadPanel({ file, onFileChange, onDrop, isDragging, setIsDragging, on
       {/* Start Matching button */}
       <button
         onClick={onMatch}
-        disabled={!file}
+        disabled={!file || loading}
         className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#0B1F3A] text-white text-sm font-bold uppercase tracking-widest hover:bg-[#162d52] active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
       >
-        <FiSearch size={16} />
-        Start Matching
+        {loading ? (
+          <>
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            Matching...
+          </>
+        ) : (
+          <>
+            <FiSearch size={16} />
+            Start Matching
+          </>
+        )}
       </button>
 
       {/* Security notice */}
@@ -126,7 +148,7 @@ function UploadPanel({ file, onFileChange, onDrop, isDragging, setIsDragging, on
 
 // ─── RESULTS PANEL ────────────────────────────────────────────────────────────
 
-function ResultsPanel({ results, hasSearched }) {
+function ResultsPanel({ results, hasSearched, error }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col gap-5">
       {/* Heading */}
@@ -141,6 +163,13 @@ function ResultsPanel({ results, hasSearched }) {
           </span>
         )}
       </div>
+
+      {/* Error state */}
+      {error && (
+        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 text-center font-medium">
+          {error}
+        </div>
+      )}
 
       {/* Empty state */}
       {!hasSearched ? (
@@ -201,16 +230,51 @@ function ResultsPanel({ results, hasSearched }) {
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
 export default function MatchServicePage() {
+  const dispatch = useDispatch();
+  const { matches, loading, error } = useSelector((state) => state.match);
+
   const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [results, setResults] = useState([]);
 
-  const handleMatch = () => {
+  const displayResults = toDisplayResults(matches);
+
+  // ── Accept sketch file from Canvas page (drag-and-drop → Match Now)
+  const location = useLocation();
+  const hasInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (location.state?.sketchFile && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      const incomingFile = location.state.sketchFile;
+      setFile(incomingFile);
+      // The match was already dispatched from the Canvas page,
+      // so results should already be in Redux. Just show them.
+      setHasSearched(true);
+
+      // Clear the navigation state to prevent re-triggering on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  const handleMatch = async () => {
     if (!file) return;
-    // Simulate API call — replace with real fetch
-    setResults(mockMatches);
-    setHasSearched(true);
+
+    dispatch(clearMatchError());
+
+    try {
+      await dispatch(uploadImageMatch(file)).unwrap();
+      setHasSearched(true);
+    } catch {
+      setHasSearched(true); // Show error in results panel
+    }
+  };
+
+  const handleFileChange = (newFile) => {
+    setFile(newFile);
+    setHasSearched(false);
+    dispatch(clearMatches());
+    dispatch(clearMatchError());
   };
 
   return (
@@ -234,13 +298,14 @@ export default function MatchServicePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
                 <UploadPanel
                     file={file}
-                    onFileChange={setFile}
-                    onDrop={setFile}
+                    onFileChange={handleFileChange}
+                    onDrop={handleFileChange}
                     isDragging={isDragging}
                     setIsDragging={setIsDragging}
                     onMatch={handleMatch}
+                    loading={loading}
                 />
-                <ResultsPanel results={results} hasSearched={hasSearched} />
+                <ResultsPanel results={displayResults} hasSearched={hasSearched} error={error} />
                 </div>
 
             </main>

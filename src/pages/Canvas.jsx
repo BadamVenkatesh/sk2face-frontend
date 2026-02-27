@@ -6,9 +6,12 @@
  */
 
 import { useState, useRef, useCallback, useEffect, memo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import Dashboard from "../components/Dashboard";
 import FEATURE_LIBRARY from "../data/featureLibrary";
 import useCanvasHistory from "../hooks/useCanvasHistory";
+import { uploadImageMatch } from "../store/matchSlice";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -914,6 +917,9 @@ function Toast({ toast }) {
 // ROOT — SK2FACE App
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Canvas() {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
   const [elements, setElements] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [ctxMenu, setCtxMenu] = useState(null);   // { x, y, id }
@@ -1166,7 +1172,7 @@ export default function Canvas() {
     }
   }, [elements, renderToCanvas, showToast]);
 
-  // ── Match Now
+  // ── Match Now — render canvas to image, upload via Redux, navigate to Match Service
   const handleMatchNow = useCallback(async () => {
     if (elements.length === 0) { showToast("Add features to canvas first", "error"); return; }
     setMatchState("loading");
@@ -1177,29 +1183,25 @@ export default function Canvas() {
       const offscreen = await renderToCanvas(2);
       const blob = await new Promise((res) => offscreen.toBlob(res, "image/png"));
 
-      const fd = new FormData();
-      fd.append("sketch", blob, "sketch.png");
+      // Create a real File from the blob so it works with both Redux thunk and the upload UI
+      const sketchFile = new File([blob], `sk2face_sketch_${Date.now()}.png`, { type: "image/png" });
 
-      // ── Replace this block with: const res = await fetch("/match", { method: "POST", body: fd }); const data = await res.json();
-      await new Promise((r) => setTimeout(r, 1800));
-      const data = {
-        candidates: [
-          { id: "C-2024-0891", confidence: 87, region: "North District" },
-          { id: "C-2024-0445", confidence: 71, region: "East District" },
-          { id: "C-2023-1102", confidence: 58, region: "Central" },
-        ]
-      };
-      // ── End mock
+      // Dispatch the real match API call
+      const result = await dispatch(uploadImageMatch(sketchFile)).unwrap();
 
-      setMatchResult(data);
+      setMatchResult(result);
       setMatchState("done");
-      showToast("Match complete — results below", "success");
+      showToast("Match complete — redirecting to results…", "success");
+
+      // Navigate to the Match Service page with the sketch file pre-loaded
+      // so the user can see both the uploaded image and the results
+      navigate("/match-service", { state: { sketchFile } });
     } catch (err) {
       console.error(err);
       setMatchState("error");
-      showToast("Match failed. Ensure /match endpoint is available.", "error");
+      showToast(err?.message || err || "Match failed. Check your connection.", "error");
     }
-  }, [elements, renderToCanvas, showToast]);
+  }, [elements, renderToCanvas, showToast, dispatch, navigate]);
 
   return (
     <Dashboard>
