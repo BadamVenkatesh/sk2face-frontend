@@ -8,43 +8,44 @@
 import { useState, useRef, useCallback, useEffect, memo } from "react";
 import Dashboard from "../components/Dashboard";
 import FEATURE_LIBRARY from "../data/featureLibrary";
+import useCanvasHistory from "../hooks/useCanvasHistory";
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
 const C = {
-  primary:  "#0B1F3A",
-  bg:       "#FFFFFF",
-  accent:   "#C5A047",
-  text:     "#2C2C2C",
-  lightBg:  "#F4F6F9",
-  success:  "#2E7D32",
-  warning:  "#EDB100",
-  danger:   "#C62828",
-  border:   "#D0D7E3",
-  muted:    "#6B7A99",
+  primary: "#0B1F3A",
+  bg: "#FFFFFF",
+  accent: "#C5A047",
+  text: "#2C2C2C",
+  lightBg: "#F4F6F9",
+  success: "#2E7D32",
+  warning: "#EDB100",
+  danger: "#C62828",
+  border: "#D0D7E3",
+  muted: "#6B7A99",
 };
 
 // ─── Default canvas size per category ────────────────────────────────────────
 const CAT_SIZE = {
   "face-shape": [220, 270],
-  hair:         [200, 155],
-  eyes:         [155,  55],
-  eyebrows:     [145,  38],
-  nose:         [ 80, 100],
-  lips:         [120,  52],
-  more:         [100,  80],
-  mustach:      [120,  60],
+  hair: [200, 155],
+  eyes: [155, 55],
+  eyebrows: [145, 38],
+  nose: [80, 100],
+  lips: [120, 52],
+  more: [100, 80],
+  mustach: [120, 60],
 };
 
 // Natural layer ordering (lower = behind)
 const CAT_ZLAYER = {
   "face-shape": 1,
-  hair:         2,
-  eyebrows:     5,
-  eyes:         6,
-  nose:         7,
-  lips:         8,
-  more:         9,
-  mustach:      10,
+  hair: 2,
+  eyebrows: 5,
+  eyes: 6,
+  nose: 7,
+  lips: 8,
+  more: 9,
+  mustach: 10,
 };
 
 // Use the imported library
@@ -67,9 +68,9 @@ const ContextMenu = memo(function ContextMenu({ x, y, onForward, onBackward, onD
   }, [onClose]);
 
   const menuItems = [
-    { label: "Bring Forward",  icon: "↑", fn: onForward,  col: C.primary },
-    { label: "Send Backward",  icon: "↓", fn: onBackward, col: C.primary },
-    { label: "Delete Element", icon: "✕", fn: onDelete,   col: C.danger  },
+    { label: "Bring Forward", icon: "↑", fn: onForward, col: C.primary },
+    { label: "Send Backward", icon: "↓", fn: onBackward, col: C.primary },
+    { label: "Delete Element", icon: "✕", fn: onDelete, col: C.danger },
   ];
 
   // Clamp so menu stays on screen
@@ -82,28 +83,28 @@ const ContextMenu = memo(function ContextMenu({ x, y, onForward, onBackward, onD
     <div
       ref={ref}
       style={{
-        position:     "fixed",
-        left:         cx,
-        top:          cy,
-        zIndex:       999999,
-        background:   "#fff",
-        border:       `1px solid ${C.border}`,
+        position: "fixed",
+        left: cx,
+        top: cy,
+        zIndex: 999999,
+        background: "#fff",
+        border: `1px solid ${C.border}`,
         borderRadius: 7,
-        boxShadow:    "0 8px 28px rgba(11,31,58,0.2)",
-        minWidth:     menuW,
-        overflow:     "hidden",
-        fontFamily:   "'Segoe UI', system-ui, sans-serif",
+        boxShadow: "0 8px 28px rgba(11,31,58,0.2)",
+        minWidth: menuW,
+        overflow: "hidden",
+        fontFamily: "'Segoe UI', system-ui, sans-serif",
       }}
     >
       <div style={{
-        padding:       "5px 12px 4px",
-        fontSize:      9,
-        fontWeight:    800,
-        color:         C.muted,
+        padding: "5px 12px 4px",
+        fontSize: 9,
+        fontWeight: 800,
+        color: C.muted,
         letterSpacing: "0.1em",
         textTransform: "uppercase",
-        background:    C.lightBg,
-        borderBottom:  `1px solid ${C.border}`,
+        background: C.lightBg,
+        borderBottom: `1px solid ${C.border}`,
       }}>
         Element Options
       </div>
@@ -112,18 +113,18 @@ const ContextMenu = memo(function ContextMenu({ x, y, onForward, onBackward, onD
           key={label}
           onMouseDown={(e) => { e.stopPropagation(); fn(); onClose(); }}
           style={{
-            display:    "flex",
+            display: "flex",
             alignItems: "center",
-            gap:        10,
-            width:      "100%",
-            padding:    "9px 14px",
-            border:     "none",
+            gap: 10,
+            width: "100%",
+            padding: "9px 14px",
+            border: "none",
             background: "transparent",
-            color:      col,
-            fontSize:   12,
+            color: col,
+            fontSize: 12,
             fontWeight: 600,
-            cursor:     "pointer",
-            textAlign:  "left",
+            cursor: "pointer",
+            textAlign: "left",
             fontFamily: "inherit",
             transition: "background 0.1s",
           }}
@@ -141,9 +142,11 @@ const ContextMenu = memo(function ContextMenu({ x, y, onForward, onBackward, onD
 // ══════════════════════════════════════════════════════════════════════════════
 // CanvasElement — draggable, resizable, right-clickable
 // ══════════════════════════════════════════════════════════════════════════════
-const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, onUpdate, onContextMenu }) {
-  const dragging  = useRef(false);
-  const resizing  = useRef(false);
+const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, onUpdate, onContextMenu, onDragEnd, onResizeEnd }) {
+  const dragging = useRef(false);
+  const resizing = useRef(false);
+  const didMove = useRef(false);
+  const didResize = useRef(false);
 
   // Move handler
   const handleMouseDown = useCallback((e) => {
@@ -154,49 +157,55 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
     onSelect(el.id);
 
     dragging.current = true;
+    didMove.current = false;
     const ox = e.clientX - el.x, oy = e.clientY - el.y;
 
     const onMove = (me) => {
       if (!dragging.current) return;
+      didMove.current = true;
       onUpdate(el.id, { x: me.clientX - ox, y: me.clientY - oy });
     };
     const onUp = () => {
       dragging.current = false;
+      if (didMove.current && onDragEnd) onDragEnd();
       document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup",   onUp);
+      document.removeEventListener("mouseup", onUp);
     };
     document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup",   onUp);
-  }, [el, onSelect, onUpdate]);
+    document.addEventListener("mouseup", onUp);
+  }, [el, onSelect, onUpdate, onDragEnd]);
 
   // Proportional resize from bottom-right corner
   const handleResizeDown = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     resizing.current = true;
+    didResize.current = false;
 
     const sx = e.clientX, sy = e.clientY;
-    const sw = el.w,      sh = el.h;
+    const sw = el.w, sh = el.h;
     const ar = sw / sh;
 
     const onMove = (me) => {
       if (!resizing.current) return;
+      didResize.current = true;
       const dx = me.clientX - sx;
       const dy = me.clientY - sy;
       // Use whichever delta is larger to determine scale
       const delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
-      const nw    = Math.max(30, sw + delta);
-      const nh    = Math.max(20, nw / ar);
+      const nw = Math.max(30, sw + delta);
+      const nh = Math.max(20, nw / ar);
       onUpdate(el.id, { w: nw, h: nh });
     };
     const onUp = () => {
       resizing.current = false;
+      if (didResize.current && onResizeEnd) onResizeEnd();
       document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup",   onUp);
+      document.removeEventListener("mouseup", onUp);
     };
     document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup",   onUp);
-  }, [el, onUpdate]);
+    document.addEventListener("mouseup", onUp);
+  }, [el, onUpdate, onResizeEnd]);
 
   const handleContextMenu = useCallback((e) => {
     e.preventDefault();
@@ -207,10 +216,10 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
 
   // Corner handle positions
   const handles = [
-    { key: "br", style: { bottom: -6, right:  -6 }, cursor: "nwse-resize", isResize: true  },
-    { key: "bl", style: { bottom: -6, left:   -6 }, cursor: "nesw-resize", isResize: false },
-    { key: "tr", style: { top:    -6, right:  -6 }, cursor: "nesw-resize", isResize: false },
-    { key: "tl", style: { top:    -6, left:   -6 }, cursor: "nwse-resize", isResize: false },
+    { key: "br", style: { bottom: -6, right: -6 }, cursor: "nwse-resize", isResize: true },
+    { key: "bl", style: { bottom: -6, left: -6 }, cursor: "nesw-resize", isResize: false },
+    { key: "tr", style: { top: -6, right: -6 }, cursor: "nesw-resize", isResize: false },
+    { key: "tl", style: { top: -6, left: -6 }, cursor: "nwse-resize", isResize: false },
   ];
 
   return (
@@ -218,14 +227,14 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
       onMouseDown={handleMouseDown}
       onContextMenu={handleContextMenu}
       style={{
-        position:    "absolute",
-        left:        el.x,
-        top:         el.y,
-        width:       el.w,
-        height:      el.h,
-        zIndex:      el.zIndex,
-        cursor:      "move",
-        userSelect:  "none",
+        position: "absolute",
+        left: el.x,
+        top: el.y,
+        width: el.w,
+        height: el.h,
+        zIndex: el.zIndex,
+        cursor: "move",
+        userSelect: "none",
         touchAction: "none",
       }}
     >
@@ -234,12 +243,12 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
         alt={el.featureId}
         draggable={false}
         style={{
-          width:          "100%",
-          height:         "100%",
-          objectFit:      "contain",
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
           objectPosition: "center",
-          display:        "block",
-          pointerEvents:  "none",
+          display: "block",
+          pointerEvents: "none",
           imageRendering: "high-quality",
         }}
       />
@@ -248,10 +257,10 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
       {isSelected && (
         <>
           <div style={{
-            position:      "absolute",
-            inset:         -1,
-            border:        `1.5px dashed ${C.accent}`,
-            borderRadius:  2,
+            position: "absolute",
+            inset: -1,
+            border: `1.5px dashed ${C.accent}`,
+            borderRadius: 2,
             pointerEvents: "none",
           }} />
           {handles.map(({ key, style, cursor, isResize }) => (
@@ -260,15 +269,15 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
               data-handle="1"
               onMouseDown={isResize ? handleResizeDown : (e) => { e.preventDefault(); e.stopPropagation(); }}
               style={{
-                position:    "absolute",
+                position: "absolute",
                 ...style,
-                width:       11,
-                height:      11,
-                background:  C.accent,
-                border:      `1.5px solid ${C.primary}`,
+                width: 11,
+                height: 11,
+                background: C.accent,
+                border: `1.5px solid ${C.primary}`,
                 borderRadius: 2,
                 cursor,
-                zIndex:      20,
+                zIndex: 20,
               }}
             />
           ))}
@@ -282,33 +291,33 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
 // FeatureItem — library thumbnail
 // ══════════════════════════════════════════════════════════════════════════════
 const FeatureItem = memo(function FeatureItem({ item, catId }) {
-  const [hovered,  setHovered]  = useState(false);
+  const [hovered, setHovered] = useState(false);
   const [imgError, setImgError] = useState(false);
 
   return (
     <div
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData("fid",   item.id);
-        e.dataTransfer.setData("fsrc",  item.src);
-        e.dataTransfer.setData("fcat",  catId);
+        e.dataTransfer.setData("fid", item.id);
+        e.dataTransfer.setData("fsrc", item.src);
+        e.dataTransfer.setData("fcat", catId);
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       title={item.label}
       style={{
-        display:       "flex",
+        display: "flex",
         flexDirection: "column",
-        alignItems:    "center",
-        padding:       "7px 4px 5px",
-        borderRadius:  6,
-        cursor:        "grab",
-        border:        `1px solid ${hovered ? C.accent : C.border}`,
-        background:    hovered ? "#FDF8EC" : "#fff",
-        userSelect:    "none",
-        transform:     hovered ? "translateY(-2px)" : "none",
-        boxShadow:     hovered ? "0 3px 10px rgba(197,160,71,0.2)" : "none",
-        transition:    "all 0.13s",
+        alignItems: "center",
+        padding: "7px 4px 5px",
+        borderRadius: 6,
+        cursor: "grab",
+        border: `1px solid ${hovered ? C.accent : C.border}`,
+        background: hovered ? "#FDF8EC" : "#fff",
+        userSelect: "none",
+        transform: hovered ? "translateY(-2px)" : "none",
+        boxShadow: hovered ? "0 3px 10px rgba(197,160,71,0.2)" : "none",
+        transition: "all 0.13s",
       }}
     >
       {imgError ? (
@@ -320,7 +329,7 @@ const FeatureItem = memo(function FeatureItem({ item, catId }) {
           lineHeight: 1.3,
         }}>
           {item.id}
-          <br/><span style={{ color: C.warning, fontSize: 8 }}>PNG missing</span>
+          <br /><span style={{ color: C.warning, fontSize: 8 }}>PNG missing</span>
         </div>
       ) : (
         <img
@@ -345,21 +354,21 @@ const CategorySection = memo(function CategorySection({ cat }) {
       <button
         onClick={() => setOpen((o) => !o)}
         style={{
-          width:          "100%",
-          display:        "flex",
-          alignItems:     "center",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
           justifyContent: "space-between",
-          padding:        "8px 10px",
-          background:     C.primary,
-          color:          "#fff",
-          border:         "none",
-          borderRadius:   5,
-          cursor:         "pointer",
-          fontSize:       11,
-          fontWeight:     700,
-          letterSpacing:  "0.06em",
-          textTransform:  "uppercase",
-          fontFamily:     "inherit",
+          padding: "8px 10px",
+          background: C.primary,
+          color: "#fff",
+          border: "none",
+          borderRadius: 5,
+          cursor: "pointer",
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          fontFamily: "inherit",
         }}
       >
         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -395,13 +404,13 @@ function FeaturePanel() {
 
   return (
     <aside style={{
-      width:         "25%",
-      background:    C.lightBg,
-      borderRight:   `1px solid ${C.border}`,
-      display:       "flex",
+      width: "25%",
+      background: C.lightBg,
+      borderRight: `1px solid ${C.border}`,
+      display: "flex",
       flexDirection: "column",
-      flexShrink:    0,
-      overflow:      "hidden",
+      flexShrink: 0,
+      overflow: "hidden",
     }}>
       {/* Header */}
       <div style={{ padding: "12px 10px 9px", background: C.primary, flexShrink: 0 }}>
@@ -413,16 +422,16 @@ function FeaturePanel() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search features…"
           style={{
-            width:        "100%",
-            padding:      "6px 10px",
-            background:   "rgba(255,255,255,0.1)",
-            border:       "1px solid rgba(255,255,255,0.2)",
+            width: "100%",
+            padding: "6px 10px",
+            background: "rgba(255,255,255,0.1)",
+            border: "1px solid rgba(255,255,255,0.2)",
             borderRadius: 5,
-            color:        "#fff",
-            fontSize:     11,
-            outline:      "none",
-            boxSizing:    "border-box",
-            fontFamily:   "inherit",
+            color: "#fff",
+            fontSize: 11,
+            outline: "none",
+            boxSizing: "border-box",
+            fontFamily: "inherit",
           }}
         />
       </div>
@@ -430,13 +439,13 @@ function FeaturePanel() {
       {/* Asset notice */}
       <div style={{ padding: "7px 8px 0", flexShrink: 0 }}>
         <div style={{
-          background:   "#FFFBEA",
-          border:       `1px solid ${C.warning}`,
+          background: "#FFFBEA",
+          border: `1px solid ${C.warning}`,
           borderRadius: 5,
-          padding:      "5px 8px",
-          fontSize:     9.5,
-          color:        "#6B4700",
-          lineHeight:   1.45,
+          padding: "5px 8px",
+          fontSize: 9.5,
+          color: "#6B4700",
+          lineHeight: 1.45,
         }}>
           📁 Place PNG files in:<br />
           <code style={{ fontFamily: "monospace", fontSize: 9 }}>/public/Face Sketch Elements/[category]/</code>
@@ -456,7 +465,7 @@ function FeaturePanel() {
 // ══════════════════════════════════════════════════════════════════════════════
 const CANVAS_W = 500, CANVAS_H = 560;
 
-function SketchCanvas({ elements, selectedId, onSelect, onUpdate, onContextMenu, onDrop, canvasRef }) {
+function SketchCanvas({ elements, selectedId, onSelect, onUpdate, onContextMenu, onDrop, canvasRef, onDragEnd, onResizeEnd }) {
   const [dragOver, setDragOver] = useState(false);
 
   const handleDragOver = useCallback((e) => { e.preventDefault(); setDragOver(true); }, []);
@@ -465,14 +474,14 @@ function SketchCanvas({ elements, selectedId, onSelect, onUpdate, onContextMenu,
   const handleDrop = useCallback((e) => {
     e.preventDefault();
     setDragOver(false);
-    const fid  = e.dataTransfer.getData("fid");
+    const fid = e.dataTransfer.getData("fid");
     const fsrc = e.dataTransfer.getData("fsrc");
     const fcat = e.dataTransfer.getData("fcat");
     if (!fid || !fsrc) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
-    const dx   = e.clientX - rect.left;
-    const dy   = e.clientY - rect.top;
+    const dx = e.clientX - rect.left;
+    const dy = e.clientY - rect.top;
     onDrop({ fid, src: fsrc, catId: fcat, dropX: dx, dropY: dy });
   }, [canvasRef, onDrop]);
 
@@ -491,18 +500,18 @@ function SketchCanvas({ elements, selectedId, onSelect, onUpdate, onContextMenu,
         onDrop={handleDrop}
         onClick={(e) => { if (e.target === e.currentTarget) onSelect(null); }}
         style={{
-          position:     "relative",
-          width:        CANVAS_W,
-          height:       CANVAS_H,
-          background:   "#FFFFFF",
-          border:       `2px solid ${dragOver ? C.accent : C.border}`,
+          position: "relative",
+          width: CANVAS_W,
+          height: CANVAS_H,
+          background: "#FFFFFF",
+          border: `2px solid ${dragOver ? C.accent : C.border}`,
           borderRadius: 4,
-          boxShadow:    dragOver
+          boxShadow: dragOver
             ? `0 0 0 4px rgba(197,160,71,0.18), 0 8px 32px rgba(11,31,58,0.12)`
             : `0 4px 20px rgba(11,31,58,0.08)`,
-          overflow:     "hidden",
-          transition:   "border-color 0.15s, box-shadow 0.15s",
-          flexShrink:   0,
+          overflow: "hidden",
+          transition: "border-color 0.15s, box-shadow 0.15s",
+          flexShrink: 0,
         }}
       >
         {/* Grid */}
@@ -546,6 +555,8 @@ function SketchCanvas({ elements, selectedId, onSelect, onUpdate, onContextMenu,
             onSelect={onSelect}
             onUpdate={onUpdate}
             onContextMenu={onContextMenu}
+            onDragEnd={onDragEnd}
+            onResizeEnd={onResizeEnd}
           />
         ))}
       </div>
@@ -562,16 +573,16 @@ function SketchCanvas({ elements, selectedId, onSelect, onUpdate, onContextMenu,
 // ══════════════════════════════════════════════════════════════════════════════
 // ControlsPanel
 // ══════════════════════════════════════════════════════════════════════════════
-function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow }) {
+function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow, onUndo, onRedo, canUndo, canRedo }) {
   return (
     <aside style={{
-      width:         "25%",
-      background:    C.lightBg,
-      borderLeft:    `1px solid ${C.border}`,
-      display:       "flex",
+      width: "25%",
+      background: C.lightBg,
+      borderLeft: `1px solid ${C.border}`,
+      display: "flex",
       flexDirection: "column",
-      flexShrink:    0,
-      overflow:      "hidden",
+      flexShrink: 0,
+      overflow: "hidden",
     }}>
       {/* Header */}
       <div style={{ background: C.primary, padding: "12px 14px 10px", flexShrink: 0 }}>
@@ -586,22 +597,22 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow 
           onClick={onMatchNow}
           disabled={matchState === "loading"}
           style={{
-            width:          "100%",
-            padding:        "12px",
-            background:     matchState === "loading" ? C.muted : C.primary,
-            border:         `2px solid ${C.accent}`,
-            borderRadius:   7,
-            color:          C.accent,
-            fontSize:       13,
-            fontWeight:     800,
-            cursor:         matchState === "loading" ? "not-allowed" : "pointer",
-            display:        "flex",
-            alignItems:     "center",
+            width: "100%",
+            padding: "12px",
+            background: matchState === "loading" ? C.muted : C.primary,
+            border: `2px solid ${C.accent}`,
+            borderRadius: 7,
+            color: C.accent,
+            fontSize: 13,
+            fontWeight: 800,
+            cursor: matchState === "loading" ? "not-allowed" : "pointer",
+            display: "flex",
+            alignItems: "center",
             justifyContent: "center",
-            gap:            8,
-            letterSpacing:  "0.06em",
-            fontFamily:     "inherit",
-            transition:     "opacity 0.2s",
+            gap: 8,
+            letterSpacing: "0.06em",
+            fontFamily: "inherit",
+            transition: "opacity 0.2s",
           }}
         >
           {matchState === "loading" ? (
@@ -611,6 +622,36 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow 
             </>
           ) : "🔍 Match Now"}
         </button>
+
+        {/* Undo / Redo */}
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (Ctrl+Z)"
+            style={{
+              ...btnStyle("#fff", C.primary, C.primary),
+              flex: 1,
+              opacity: canUndo ? 1 : 0.4,
+              cursor: canUndo ? "pointer" : "not-allowed",
+            }}
+          >
+            ↶ Undo
+          </button>
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (Ctrl+Y)"
+            style={{
+              ...btnStyle("#fff", C.primary, C.primary),
+              flex: 1,
+              opacity: canRedo ? 1 : 0.4,
+              cursor: canRedo ? "pointer" : "not-allowed",
+            }}
+          >
+            ↷ Redo
+          </button>
+        </div>
 
         {/* Export */}
         <button onClick={onExport} style={btnStyle("#fff", C.primary, C.primary)}>
@@ -627,10 +668,10 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow 
         {/* Case Details */}
         <Card title="Current Case">
           {[
-            ["Case ID",      "24-10945",     true],
-            ["Investigator", "Agent Smith",  false],
-            ["Date",         "Oct 26, 2024", false],
-            ["Status",       "Active",       false],
+            ["Case ID", "24-10945", true],
+            ["Investigator", "Agent Smith", false],
+            ["Date", "Oct 26, 2024", false],
+            ["Status", "Active", false],
           ].map(([k, v, mono]) => (
             <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 11 }}>
               <span style={{ color: C.muted, fontWeight: 500 }}>{k}</span>
@@ -647,18 +688,18 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow 
         <textarea
           placeholder="Investigation notes…"
           style={{
-            width:        "100%",
-            height:       72,
-            padding:      "8px 10px",
-            background:   "#fff",
-            border:       `1px solid ${C.border}`,
+            width: "100%",
+            height: 72,
+            padding: "8px 10px",
+            background: "#fff",
+            border: `1px solid ${C.border}`,
             borderRadius: 6,
-            color:        C.text,
-            fontSize:     11,
-            resize:       "none",
-            outline:      "none",
-            boxSizing:    "border-box",
-            fontFamily:   "inherit",
+            color: C.text,
+            fontSize: 11,
+            resize: "none",
+            outline: "none",
+            boxSizing: "border-box",
+            fontFamily: "inherit",
           }}
         />
 
@@ -671,6 +712,9 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow 
             "Click element → select & resize from corners",
             "Right-click → bring forward / send back / delete",
             "Start with face shape for best layering",
+            "Delete key → remove selected element",
+            "Arrow keys → nudge selected element",
+            "Ctrl+Z / Ctrl+Y → undo / redo",
           ].map((tip, i) => (
             <div key={i} style={{ fontSize: 10, color: C.muted, marginBottom: 5, display: "flex", gap: 7 }}>
               <span style={{ color: C.accent, fontWeight: 800, flexShrink: 0 }}>{i + 1}.</span>
@@ -684,10 +728,10 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow 
           <Card title="🎯 Match Results" titleBg={C.success} titleColor="#fff">
             {matchResult.candidates.map((c, i) => (
               <div key={c.id} style={{
-                display:      "flex",
-                alignItems:   "center",
-                gap:          8,
-                padding:      "7px 0",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "7px 0",
                 borderBottom: i < matchResult.candidates.length - 1 ? `1px solid ${C.border}` : "none",
               }}>
                 <div style={{ width: 24, height: 24, borderRadius: "50%", background: i === 0 ? C.accent : C.lightBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: i === 0 ? C.primary : C.muted, flexShrink: 0 }}>
@@ -721,21 +765,21 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow 
 // ─── Small helpers ────────────────────────────────────────────────────────────
 function btnStyle(bg, borderColor, color) {
   return {
-    width:          "100%",
-    padding:        "9px 12px",
-    background:     bg,
-    border:         `1.5px solid ${borderColor}`,
-    borderRadius:   6,
-    color:          color,
-    fontSize:       12,
-    fontWeight:     700,
-    cursor:         "pointer",
-    display:        "flex",
-    alignItems:     "center",
+    width: "100%",
+    padding: "9px 12px",
+    background: bg,
+    border: `1.5px solid ${borderColor}`,
+    borderRadius: 6,
+    color: color,
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
     justifyContent: "center",
-    gap:            8,
-    fontFamily:     "inherit",
-    transition:     "background 0.13s",
+    gap: 8,
+    fontFamily: "inherit",
+    transition: "background 0.13s",
   };
 }
 
@@ -760,24 +804,24 @@ function Toast({ toast }) {
   const bg = { success: C.success, error: C.danger, info: C.primary }[toast.type] || C.primary;
   return (
     <div style={{
-      position:     "fixed",
-      bottom:       24,
-      left:         "50%",
-      transform:    "translateX(-50%)",
-      padding:      "10px 22px",
+      position: "fixed",
+      bottom: 24,
+      left: "50%",
+      transform: "translateX(-50%)",
+      padding: "10px 22px",
       borderRadius: 8,
-      background:   bg,
-      color:        "#fff",
-      fontSize:     13,
-      fontWeight:   700,
-      boxShadow:    "0 4px 16px rgba(0,0,0,0.2)",
-      zIndex:       9999999,
-      display:      "flex",
-      alignItems:   "center",
-      gap:          8,
-      animation:    "sk2fade 0.2s ease",
-      fontFamily:   "'Segoe UI', system-ui, sans-serif",
-      whiteSpace:   "nowrap",
+      background: bg,
+      color: "#fff",
+      fontSize: 13,
+      fontWeight: 700,
+      boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+      zIndex: 9999999,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      animation: "sk2fade 0.2s ease",
+      fontFamily: "'Segoe UI', system-ui, sans-serif",
+      whiteSpace: "nowrap",
     }}>
       {{ success: "✓", error: "⚠", info: "ℹ" }[toast.type]} {toast.msg}
     </div>
@@ -788,14 +832,24 @@ function Toast({ toast }) {
 // ROOT — SK2FACE App
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Canvas() {
-  const [elements,    setElements]    = useState([]);
-  const [selectedId,  setSelectedId]  = useState(null);
-  const [ctxMenu,     setCtxMenu]     = useState(null);   // { x, y, id }
-  const [matchState,  setMatchState]  = useState("idle"); // idle | loading | done | error
+  const [elements, setElements] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [ctxMenu, setCtxMenu] = useState(null);   // { x, y, id }
+  const [matchState, setMatchState] = useState("idle"); // idle | loading | done | error
   const [matchResult, setMatchResult] = useState(null);
-  const [toast,       setToast]       = useState(null);
-  const canvasRef  = useRef(null);
-  const topZRef    = useRef(10);
+  const [toast, setToast] = useState(null);
+  const canvasRef = useRef(null);
+  const topZRef = useRef(10);
+
+  // ── History (undo / redo)
+  const { pushState, undo, redo, canUndo, canRedo } = useCanvasHistory(setElements);
+
+  // Ref that always mirrors the latest elements so keyboard handler is never stale
+  const elementsRef = useRef(elements);
+  useEffect(() => { elementsRef.current = elements; }, [elements]);
+
+  const selectedIdRef = useRef(selectedId);
+  useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
 
   // ── Toast helper
   const showToast = useCallback((msg, type = "success") => {
@@ -806,29 +860,38 @@ export default function Canvas() {
   // ── Drop new element onto canvas
   const handleDrop = useCallback(({ fid, src, catId, dropX, dropY }) => {
     const [dw, dh] = CAT_SIZE[catId] || [100, 80];
-    const zBase    = CAT_ZLAYER[catId] || 5;
+    const zBase = CAT_ZLAYER[catId] || 5;
     topZRef.current = Math.max(topZRef.current, zBase) + 1;
 
-    setElements((prev) => [
-      ...prev,
-      {
-        id:      nextId(),
-        featureId: fid,
-        src,
-        catId,
-        x:       dropX - dw / 2,
-        y:       dropY - dh / 2,
-        w:       dw,
-        h:       dh,
-        zIndex:  topZRef.current,
-      },
-    ]);
-  }, []);
+    const newEl = {
+      id: nextId(),
+      featureId: fid,
+      src,
+      catId,
+      x: dropX - dw / 2,
+      y: dropY - dh / 2,
+      w: dw,
+      h: dh,
+      zIndex: topZRef.current,
+    };
+
+    setElements((prev) => {
+      const next = [...prev, newEl];
+      pushState(next);
+      return next;
+    });
+  }, [pushState]);
 
   // ── Update element properties
   const handleUpdate = useCallback((id, patch) => {
     setElements((prev) => prev.map((el) => el.id === id ? { ...el, ...patch } : el));
   }, []);
+
+  // ── Drag / Resize end → push history once
+  const handleInteractionEnd = useCallback(() => {
+    // Read the latest elements and push a snapshot
+    pushState(elementsRef.current);
+  }, [pushState]);
 
   // ── Select
   const handleSelect = useCallback((id) => {
@@ -846,8 +909,12 @@ export default function Canvas() {
   const bringForward = useCallback(() => {
     if (!ctxMenu?.id) return;
     topZRef.current += 1;
-    handleUpdate(ctxMenu.id, { zIndex: topZRef.current });
-  }, [ctxMenu, handleUpdate]);
+    setElements((prev) => {
+      const next = prev.map((e) => e.id === ctxMenu.id ? { ...e, zIndex: topZRef.current } : e);
+      pushState(next);
+      return next;
+    });
+  }, [ctxMenu, pushState]);
 
   const sendBackward = useCallback(() => {
     if (!ctxMenu?.id) return;
@@ -855,26 +922,90 @@ export default function Canvas() {
       const el = prev.find((e) => e.id === ctxMenu.id);
       if (!el) return prev;
       const newZ = Math.max(1, el.zIndex - 1);
-      return prev.map((e) => e.id === ctxMenu.id ? { ...e, zIndex: newZ } : e);
+      const next = prev.map((e) => e.id === ctxMenu.id ? { ...e, zIndex: newZ } : e);
+      pushState(next);
+      return next;
     });
-  }, [ctxMenu]);
+  }, [ctxMenu, pushState]);
+
+  const deleteElement = useCallback((id) => {
+    setElements((prev) => {
+      const next = prev.filter((e) => e.id !== id);
+      pushState(next);
+      return next;
+    });
+    setSelectedId(null);
+  }, [pushState]);
 
   const deleteCtxElement = useCallback(() => {
     if (!ctxMenu?.id) return;
-    setElements((prev) => prev.filter((e) => e.id !== ctxMenu.id));
-    setSelectedId(null);
-  }, [ctxMenu]);
+    deleteElement(ctxMenu.id);
+  }, [ctxMenu, deleteElement]);
 
   // ── Clear
   const clearCanvas = useCallback(() => {
-    setElements([]); setSelectedId(null); setMatchResult(null);
+    setElements([]);
+    pushState([]);
+    setSelectedId(null);
+    setMatchResult(null);
     showToast("Canvas cleared", "info");
-  }, [showToast]);
+  }, [showToast, pushState]);
+
+  // ── Keyboard handler (Delete, Arrow keys, Ctrl+Z/Y)
+  useEffect(() => {
+    const NUDGE = 3; // px per arrow key press
+
+    const handleKeyDown = (e) => {
+      // Ignore if user is typing in an input / textarea
+      const tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      // ── Ctrl+Z  →  Undo
+      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      // ── Ctrl+Y  →  Redo
+      if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      const selId = selectedIdRef.current;
+      if (!selId) return;
+
+      // ── Delete key
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        deleteElement(selId);
+        return;
+      }
+
+      // ── Arrow keys → nudge
+      const arrows = { ArrowLeft: [-NUDGE, 0], ArrowRight: [NUDGE, 0], ArrowUp: [0, -NUDGE], ArrowDown: [0, NUDGE] };
+      const delta = arrows[e.key];
+      if (delta) {
+        e.preventDefault();
+        setElements((prev) => {
+          const next = prev.map((el) =>
+            el.id === selId ? { ...el, x: el.x + delta[0], y: el.y + delta[1] } : el
+          );
+          pushState(next);
+          return next;
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [undo, redo, deleteElement, pushState]);
 
   // ── Render elements to an offscreen canvas (native Canvas 2D API)
   const renderToCanvas = useCallback(async (scale = 2) => {
     const offscreen = document.createElement("canvas");
-    offscreen.width  = CANVAS_W * scale;
+    offscreen.width = CANVAS_W * scale;
     offscreen.height = CANVAS_H * scale;
     const ctx = offscreen.getContext("2d");
 
@@ -892,7 +1023,7 @@ export default function Canvas() {
         new Promise((resolve) => {
           const img = new Image();
           img.crossOrigin = "anonymous";
-          img.onload  = () => resolve({ el, img, ok: true });
+          img.onload = () => resolve({ el, img, ok: true });
           img.onerror = () => resolve({ el, img: null, ok: false });
           img.src = el.src;
         })
@@ -904,7 +1035,7 @@ export default function Canvas() {
       if (!ok || !img) continue;
 
       // Replicate object-fit: contain behaviour
-      const elAR  = el.w / el.h;
+      const elAR = el.w / el.h;
       const imgAR = img.naturalWidth / img.naturalHeight;
       let dw, dh, dx, dy;
 
@@ -934,9 +1065,9 @@ export default function Canvas() {
     try {
       setSelectedId(null);
       const offscreen = await renderToCanvas(2);
-      const link      = document.createElement("a");
-      link.download   = `sk2face_${Date.now()}.png`;
-      link.href       = offscreen.toDataURL("image/png", 1.0);
+      const link = document.createElement("a");
+      link.download = `sk2face_${Date.now()}.png`;
+      link.href = offscreen.toDataURL("image/png", 1.0);
       link.click();
       showToast("Sketch exported as PNG!", "success");
     } catch (err) {
@@ -961,11 +1092,13 @@ export default function Canvas() {
 
       // ── Replace this block with: const res = await fetch("/match", { method: "POST", body: fd }); const data = await res.json();
       await new Promise((r) => setTimeout(r, 1800));
-      const data = { candidates: [
-        { id: "C-2024-0891", confidence: 87, region: "North District" },
-        { id: "C-2024-0445", confidence: 71, region: "East District"  },
-        { id: "C-2023-1102", confidence: 58, region: "Central"         },
-      ]};
+      const data = {
+        candidates: [
+          { id: "C-2024-0891", confidence: 87, region: "North District" },
+          { id: "C-2024-0445", confidence: 71, region: "East District" },
+          { id: "C-2023-1102", confidence: 58, region: "Central" },
+        ]
+      };
       // ── End mock
 
       setMatchResult(data);
@@ -980,63 +1113,69 @@ export default function Canvas() {
 
   return (
     <Dashboard>
-        <div style={{
-      display:       "flex",
-      flexDirection: "column",
-      height:        "100vh",
-      background:    C.bg,
-      fontFamily:    "'Segoe UI', system-ui, sans-serif",
-      color:         C.text,
-      overflow:      "hidden",
-      
-    }}>
-     
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        background: C.bg,
+        fontFamily: "'Segoe UI', system-ui, sans-serif",
+        color: C.text,
+        overflow: "hidden",
 
-      
+      }}>
 
-      {/* ── MAIN ── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        <FeaturePanel />
 
-        <main
-          style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", padding: "20px", background: C.bg, overflow: "auto" }}
-          onClick={(e) => { if (e.target === e.currentTarget) { setSelectedId(null); setCtxMenu(null); } }}
-        >
-          <SketchCanvas
-            elements={elements}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            onUpdate={handleUpdate}
-            onContextMenu={handleContextMenu}
-            onDrop={handleDrop}
-            canvasRef={canvasRef}
+
+
+        {/* ── MAIN ── */}
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          <FeaturePanel />
+
+          <main
+            style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", padding: "20px", background: C.bg, overflow: "auto" }}
+            onClick={(e) => { if (e.target === e.currentTarget) { setSelectedId(null); setCtxMenu(null); } }}
+          >
+            <SketchCanvas
+              elements={elements}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              onUpdate={handleUpdate}
+              onContextMenu={handleContextMenu}
+              onDrop={handleDrop}
+              canvasRef={canvasRef}
+              onDragEnd={handleInteractionEnd}
+              onResizeEnd={handleInteractionEnd}
+            />
+          </main>
+
+          <ControlsPanel
+            matchState={matchState}
+            matchResult={matchResult}
+            onExport={exportImage}
+            onClear={clearCanvas}
+            onMatchNow={handleMatchNow}
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
           />
-        </main>
+        </div>
 
-        <ControlsPanel
-          matchState={matchState}
-          matchResult={matchResult}
-          onExport={exportImage}
-          onClear={clearCanvas}
-          onMatchNow={handleMatchNow}
-        />
-      </div>
+        {/* Context Menu */}
+        {ctxMenu && (
+          <ContextMenu
+            x={ctxMenu.x}
+            y={ctxMenu.y}
+            onForward={bringForward}
+            onBackward={sendBackward}
+            onDelete={deleteCtxElement}
+            onClose={closeCtx}
+          />
+        )}
 
-      {/* Context Menu */}
-      {ctxMenu && (
-        <ContextMenu
-          x={ctxMenu.x}
-          y={ctxMenu.y}
-          onForward={bringForward}
-          onBackward={sendBackward}
-          onDelete={deleteCtxElement}
-          onClose={closeCtx}
-        />
-      )}
+        <Toast toast={toast} />
 
-      <Toast toast={toast} />
-
-      <style>{`
+        <style>{`
         @keyframes sk2spin { to { transform: rotate(360deg); } }
         @keyframes sk2fade { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
         * { box-sizing: border-box; }
@@ -1045,7 +1184,7 @@ export default function Canvas() {
         ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 4px; }
         img { -webkit-user-drag: none; user-select: none; }
       `}</style>
-    </div>
+      </div>
     </Dashboard>
   );
 }
