@@ -140,15 +140,15 @@ const ContextMenu = memo(function ContextMenu({ x, y, onForward, onBackward, onD
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// CanvasElement — draggable, resizable, right-clickable
+// CanvasElement — draggable, resizable (8 handles), rotatable, right-clickable
 // ══════════════════════════════════════════════════════════════════════════════
-const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, onUpdate, onContextMenu, onDragEnd, onResizeEnd }) {
-  const dragging = useRef(false);
-  const resizing = useRef(false);
-  const didMove = useRef(false);
-  const didResize = useRef(false);
+const MIN_W = 20, MIN_H = 20;
 
-  // Move handler
+const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, onUpdate, onContextMenu, onDragEnd, onResizeEnd, onRotateEnd }) {
+  const interacting = useRef(false);
+  const didChange = useRef(false);
+
+  // ── Move (drag) handler ──────────────────────────────────────────────────
   const handleMouseDown = useCallback((e) => {
     if (e.button !== 0) return;
     if (e.currentTarget !== e.target && e.target.dataset.handle) return;
@@ -156,18 +156,18 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
     e.stopPropagation();
     onSelect(el.id);
 
-    dragging.current = true;
-    didMove.current = false;
+    interacting.current = true;
+    didChange.current = false;
     const ox = e.clientX - el.x, oy = e.clientY - el.y;
 
     const onMove = (me) => {
-      if (!dragging.current) return;
-      didMove.current = true;
+      if (!interacting.current) return;
+      didChange.current = true;
       onUpdate(el.id, { x: me.clientX - ox, y: me.clientY - oy });
     };
     const onUp = () => {
-      dragging.current = false;
-      if (didMove.current && onDragEnd) onDragEnd();
+      interacting.current = false;
+      if (didChange.current && onDragEnd) onDragEnd();
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
@@ -175,31 +175,72 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
     document.addEventListener("mouseup", onUp);
   }, [el, onSelect, onUpdate, onDragEnd]);
 
-  // Proportional resize from bottom-right corner
-  const handleResizeDown = useCallback((e) => {
+  // ── Resize handler (works for corners AND edges) ─────────────────────────
+  const handleResizeDown = useCallback((handleKey, e) => {
     e.preventDefault();
     e.stopPropagation();
-    resizing.current = true;
-    didResize.current = false;
+    interacting.current = true;
+    didChange.current = false;
 
-    const sx = e.clientX, sy = e.clientY;
-    const sw = el.w, sh = el.h;
-    const ar = sw / sh;
+    const startX = e.clientX, startY = e.clientY;
+    const { x: ox, y: oy, w: ow, h: oh } = el;
+    const ar = ow / oh;
+    const isCorner = ["tl", "tr", "bl", "br"].includes(handleKey);
 
     const onMove = (me) => {
-      if (!resizing.current) return;
-      didResize.current = true;
-      const dx = me.clientX - sx;
-      const dy = me.clientY - sy;
-      // Use whichever delta is larger to determine scale
-      const delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
-      const nw = Math.max(30, sw + delta);
-      const nh = Math.max(20, nw / ar);
-      onUpdate(el.id, { w: nw, h: nh });
+      if (!interacting.current) return;
+      didChange.current = true;
+      const dx = me.clientX - startX;
+      const dy = me.clientY - startY;
+      const shiftHeld = me.shiftKey;
+
+      let nx = ox, ny = oy, nw = ow, nh = oh;
+
+      if (isCorner) {
+        // Corner resize — proportional by default, Shift to free
+        const lockRatio = !shiftHeld;
+        switch (handleKey) {
+          case "br":
+            nw = Math.max(MIN_W, ow + dx);
+            nh = lockRatio ? nw / ar : Math.max(MIN_H, oh + dy);
+            if (lockRatio) nw = nh * ar;
+            break;
+          case "bl":
+            nw = Math.max(MIN_W, ow - dx);
+            nh = lockRatio ? nw / ar : Math.max(MIN_H, oh + dy);
+            if (lockRatio) nw = nh * ar;
+            nx = ox + ow - nw;
+            break;
+          case "tr":
+            nw = Math.max(MIN_W, ow + dx);
+            nh = lockRatio ? nw / ar : Math.max(MIN_H, oh - dy);
+            if (lockRatio) nw = nh * ar;
+            ny = oy + oh - nh;
+            break;
+          case "tl":
+            nw = Math.max(MIN_W, ow - dx);
+            nh = lockRatio ? nw / ar : Math.max(MIN_H, oh - dy);
+            if (lockRatio) nw = nh * ar;
+            nx = ox + ow - nw;
+            ny = oy + oh - nh;
+            break;
+        }
+      } else {
+        // Edge resize — single axis
+        switch (handleKey) {
+          case "mr": nw = Math.max(MIN_W, ow + dx); break;
+          case "ml": nw = Math.max(MIN_W, ow - dx); nx = ox + ow - nw; break;
+          case "bm": nh = Math.max(MIN_H, oh + dy); break;
+          case "tm": nh = Math.max(MIN_H, oh - dy); ny = oy + oh - nh; break;
+        }
+      }
+
+      onUpdate(el.id, { x: nx, y: ny, w: nw, h: nh });
     };
+
     const onUp = () => {
-      resizing.current = false;
-      if (didResize.current && onResizeEnd) onResizeEnd();
+      interacting.current = false;
+      if (didChange.current && onResizeEnd) onResizeEnd();
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
@@ -207,6 +248,37 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
     document.addEventListener("mouseup", onUp);
   }, [el, onUpdate, onResizeEnd]);
 
+  // ── Rotation handler ─────────────────────────────────────────────────────
+  const handleRotateDown = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    interacting.current = true;
+    didChange.current = false;
+
+    // Element center in viewport coords
+    const cx = el.x + el.w / 2;
+    const cy = el.y + el.h / 2;
+    const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx);
+    const startRot = el.rotation || 0;
+
+    const onMove = (me) => {
+      if (!interacting.current) return;
+      didChange.current = true;
+      const angle = Math.atan2(me.clientY - cy, me.clientX - cx);
+      const delta = (angle - startAngle) * (180 / Math.PI);
+      onUpdate(el.id, { rotation: startRot + delta });
+    };
+    const onUp = () => {
+      interacting.current = false;
+      if (didChange.current && onRotateEnd) onRotateEnd();
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [el, onUpdate, onRotateEnd]);
+
+  // ── Context menu ─────────────────────────────────────────────────────────
   const handleContextMenu = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -214,13 +286,23 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
     onContextMenu(e.clientX, e.clientY, el.id);
   }, [el, onSelect, onContextMenu]);
 
-  // Corner handle positions
-  const handles = [
-    { key: "br", style: { bottom: -6, right: -6 }, cursor: "nwse-resize", isResize: true },
-    { key: "bl", style: { bottom: -6, left: -6 }, cursor: "nesw-resize", isResize: false },
-    { key: "tr", style: { top: -6, right: -6 }, cursor: "nesw-resize", isResize: false },
-    { key: "tl", style: { top: -6, left: -6 }, cursor: "nwse-resize", isResize: false },
+  // ── Handle definitions: 4 corners + 4 edges ─────────────────────────────
+  const HANDLE_SZ = 10;
+  const HALF = -HANDLE_SZ / 2;
+  const resizeHandles = [
+    // Corners
+    { key: "tl", style: { top: HALF, left: HALF }, cursor: "nwse-resize" },
+    { key: "tr", style: { top: HALF, right: HALF }, cursor: "nesw-resize" },
+    { key: "bl", style: { bottom: HALF, left: HALF }, cursor: "nesw-resize" },
+    { key: "br", style: { bottom: HALF, right: HALF }, cursor: "nwse-resize" },
+    // Edges
+    { key: "tm", style: { top: HALF, left: "50%", marginLeft: HALF }, cursor: "ns-resize" },
+    { key: "bm", style: { bottom: HALF, left: "50%", marginLeft: HALF }, cursor: "ns-resize" },
+    { key: "ml", style: { top: "50%", left: HALF, marginTop: HALF }, cursor: "ew-resize" },
+    { key: "mr", style: { top: "50%", right: HALF, marginTop: HALF }, cursor: "ew-resize" },
   ];
+
+  const rot = el.rotation || 0;
 
   return (
     <div
@@ -236,6 +318,8 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
         cursor: "move",
         userSelect: "none",
         touchAction: "none",
+        transform: `rotate(${rot}deg)`,
+        transformOrigin: "center center",
       }}
     >
       <img
@@ -256,6 +340,7 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
       {/* Selection overlay */}
       {isSelected && (
         <>
+          {/* Dashed border */}
           <div style={{
             position: "absolute",
             inset: -1,
@@ -263,24 +348,67 @@ const CanvasElement = memo(function CanvasElement({ el, isSelected, onSelect, on
             borderRadius: 2,
             pointerEvents: "none",
           }} />
-          {handles.map(({ key, style, cursor, isResize }) => (
+
+          {/* Resize handles */}
+          {resizeHandles.map(({ key, style, cursor }) => (
             <div
               key={key}
               data-handle="1"
-              onMouseDown={isResize ? handleResizeDown : (e) => { e.preventDefault(); e.stopPropagation(); }}
+              onMouseDown={(e) => handleResizeDown(key, e)}
               style={{
                 position: "absolute",
                 ...style,
-                width: 11,
-                height: 11,
+                width: HANDLE_SZ,
+                height: HANDLE_SZ,
                 background: C.accent,
                 border: `1.5px solid ${C.primary}`,
-                borderRadius: 2,
+                borderRadius: ["tl", "tr", "bl", "br"].includes(key) ? 2 : "50%",
                 cursor,
                 zIndex: 20,
               }}
             />
           ))}
+
+          {/* Rotation handle — line + circle above top center */}
+          <div
+            style={{
+              position: "absolute",
+              top: -28,
+              left: "50%",
+              marginLeft: -0.5,
+              width: 1,
+              height: 22,
+              background: C.accent,
+              pointerEvents: "none",
+              zIndex: 19,
+            }}
+          />
+          <div
+            data-handle="1"
+            onMouseDown={handleRotateDown}
+            title="Rotate"
+            style={{
+              position: "absolute",
+              top: -38,
+              left: "50%",
+              marginLeft: -7,
+              width: 14,
+              height: 14,
+              borderRadius: "50%",
+              background: C.accent,
+              border: `1.5px solid ${C.primary}`,
+              cursor: "grab",
+              zIndex: 21,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 8,
+              color: C.primary,
+              fontWeight: 900,
+            }}
+          >
+            ↻
+          </div>
         </>
       )}
     </div>
@@ -437,7 +565,7 @@ function FeaturePanel() {
       </div>
 
       {/* Asset notice */}
-      <div style={{ padding: "7px 8px 0", flexShrink: 0 }}>
+      {/* <div style={{ padding: "7px 8px 0", flexShrink: 0 }}>
         <div style={{
           background: "#FFFBEA",
           border: `1px solid ${C.warning}`,
@@ -450,7 +578,7 @@ function FeaturePanel() {
           📁 Place PNG files in:<br />
           <code style={{ fontFamily: "monospace", fontSize: 9 }}>/public/Face Sketch Elements/[category]/</code>
         </div>
-      </div>
+      </div> */}
 
       {/* Scrollable list */}
       <div style={{ flex: 1, overflowY: "auto", padding: "8px", scrollbarWidth: "thin", scrollbarColor: `${C.border} transparent` }}>
@@ -465,7 +593,7 @@ function FeaturePanel() {
 // ══════════════════════════════════════════════════════════════════════════════
 const CANVAS_W = 500, CANVAS_H = 560;
 
-function SketchCanvas({ elements, selectedId, onSelect, onUpdate, onContextMenu, onDrop, canvasRef, onDragEnd, onResizeEnd }) {
+function SketchCanvas({ elements, selectedId, onSelect, onUpdate, onContextMenu, onDrop, canvasRef, onDragEnd, onResizeEnd, onRotateEnd }) {
   const [dragOver, setDragOver] = useState(false);
 
   const handleDragOver = useCallback((e) => { e.preventDefault(); setDragOver(true); }, []);
@@ -557,6 +685,7 @@ function SketchCanvas({ elements, selectedId, onSelect, onUpdate, onContextMenu,
             onContextMenu={onContextMenu}
             onDragEnd={onDragEnd}
             onResizeEnd={onResizeEnd}
+            onRotateEnd={onRotateEnd}
           />
         ))}
       </div>
@@ -665,25 +794,6 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow,
 
         <Divider />
 
-        {/* Case Details */}
-        <Card title="Current Case">
-          {[
-            ["Case ID", "24-10945", true],
-            ["Investigator", "Agent Smith", false],
-            ["Date", "Oct 26, 2024", false],
-            ["Status", "Active", false],
-          ].map(([k, v, mono]) => (
-            <div key={k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 11 }}>
-              <span style={{ color: C.muted, fontWeight: 500 }}>{k}</span>
-              <span style={{ color: C.text, fontWeight: 700, fontFamily: mono ? "monospace" : "inherit", textAlign: "right" }}>
-                {k === "Status"
-                  ? <span style={{ background: "#E8F5E9", color: C.success, padding: "1px 7px", borderRadius: 4, fontSize: 10, fontFamily: "inherit" }}>{v}</span>
-                  : v}
-              </span>
-            </div>
-          ))}
-        </Card>
-
         {/* Notes */}
         <textarea
           placeholder="Investigation notes…"
@@ -723,34 +833,6 @@ function ControlsPanel({ matchState, matchResult, onExport, onClear, onMatchNow,
           ))}
         </Card>
 
-        {/* Match Results */}
-        {matchResult && (
-          <Card title="🎯 Match Results" titleBg={C.success} titleColor="#fff">
-            {matchResult.candidates.map((c, i) => (
-              <div key={c.id} style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "7px 0",
-                borderBottom: i < matchResult.candidates.length - 1 ? `1px solid ${C.border}` : "none",
-              }}>
-                <div style={{ width: 24, height: 24, borderRadius: "50%", background: i === 0 ? C.accent : C.lightBg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: i === 0 ? C.primary : C.muted, flexShrink: 0 }}>
-                  {i + 1}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.text, fontFamily: "monospace" }}>{c.id}</div>
-                  <div style={{ fontSize: 9, color: C.muted }}>{c.region}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: i === 0 ? C.success : C.muted, textAlign: "right" }}>{c.confidence}%</div>
-                  <div style={{ width: 46, height: 5, background: C.lightBg, borderRadius: 3, marginTop: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${c.confidence}%`, background: i === 0 ? C.success : C.muted, borderRadius: 3 }} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </Card>
-        )}
       </div>
 
       {/* Status bar */}
@@ -872,6 +954,7 @@ export default function Canvas() {
       y: dropY - dh / 2,
       w: dw,
       h: dh,
+      rotation: 0,
       zIndex: topZRef.current,
     };
 
@@ -1030,30 +1113,37 @@ export default function Canvas() {
     );
     const loaded = await Promise.all(imgPromises);
 
-    // Draw each image at its exact canvas position and size
+    // Draw each image at its exact canvas position and size (with rotation)
     for (const { el, img, ok } of loaded) {
       if (!ok || !img) continue;
 
       // Replicate object-fit: contain behaviour
       const elAR = el.w / el.h;
       const imgAR = img.naturalWidth / img.naturalHeight;
-      let dw, dh, dx, dy;
+      let dw, dh, offX, offY;
 
       if (imgAR > elAR) {
-        // Image is wider — fit to width, center vertically
         dw = el.w;
         dh = el.w / imgAR;
-        dx = el.x;
-        dy = el.y + (el.h - dh) / 2;
+        offX = 0;
+        offY = (el.h - dh) / 2;
       } else {
-        // Image is taller — fit to height, center horizontally
         dh = el.h;
         dw = el.h * imgAR;
-        dx = el.x + (el.w - dw) / 2;
-        dy = el.y;
+        offX = (el.w - dw) / 2;
+        offY = 0;
       }
 
-      ctx.drawImage(img, dx, dy, dw, dh);
+      // Rotate around element center
+      const cx = el.x + el.w / 2;
+      const cy = el.y + el.h / 2;
+      const rad = ((el.rotation || 0) * Math.PI) / 180;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rad);
+      ctx.drawImage(img, -el.w / 2 + offX, -el.h / 2 + offY, dw, dh);
+      ctx.restore();
     }
 
     return offscreen;
@@ -1145,6 +1235,7 @@ export default function Canvas() {
               canvasRef={canvasRef}
               onDragEnd={handleInteractionEnd}
               onResizeEnd={handleInteractionEnd}
+              onRotateEnd={handleInteractionEnd}
             />
           </main>
 
